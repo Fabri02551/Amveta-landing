@@ -1,0 +1,17 @@
+node_modules
+dist
+.opencode
+
+# Logs
+*.log
+npm-debug.log*
+
+# Environment
+.env
+.env.*
+
+# Editor / OS
+.DS_Store
+.idea
+.vscode/*
+!.vscode/extensions.json

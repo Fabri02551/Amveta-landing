@@ -9,6 +9,7 @@ npm-debug.log*
 # Environment
 .env
 .env.*
+!.env.example
 
 # Editor / OS
 .DS_Store

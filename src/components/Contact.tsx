@@ -4,12 +4,14 @@ import {
   ArrowUpRight,
   Check,
   Copy,
+  Loader2,
   Send,
   ShieldCheck,
 } from "lucide-react";
 import { CONTACT_EMAIL, CONTACT_MAILTO } from "../config";
 import { Reveal } from "./Reveal";
 import { SectionHeading } from "./SectionHeading";
+import { sendContactEmail } from "../services/emailService";
 
 type FormState = {
   name: string;
@@ -24,6 +26,8 @@ export function Contact() {
   const [form, setForm] = useState<FormState>(emptyForm);
   const [copied, setCopied] = useState(false);
   const [sent, setSent] = useState(false);
+  const [submitting, setSubmitting] = useState(false);
+  const [statusMessage, setStatusMessage] = useState<string | null>(null);
   const bullets = t("contact.bullets", {
     returnObjects: true,
   }) as unknown as string[];
@@ -46,28 +50,48 @@ export function Contact() {
     }
   }
 
-  function handleSubmit(event: FormEvent<HTMLFormElement>) {
+  async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
+    if (submitting) return;
 
-    const subject = t("contact.form.subject", {
-      name: form.name || "Amveta",
-    });
-    const body = [
-      t("contact.form.greeting"),
-      "",
-      t("contact.form.nameLine", { name: form.name }),
-      "",
-      form.message,
-      "",
-      t("contact.form.replyLine", { email: form.email }),
-    ].join("\n");
+    setSubmitting(true);
+    setStatusMessage(null);
 
-    window.location.href = `mailto:${CONTACT_EMAIL}?subject=${encodeURIComponent(
-      subject,
-    )}&body=${encodeURIComponent(body)}`;
+    try {
+      const response = await sendContactEmail(form);
+      setSent(true);
+      setForm(emptyForm);
+      if (response.simulated) {
+        setStatusMessage(response.message || "Mensaje enviado (modo simulación)");
+      }
+      window.setTimeout(() => {
+        setSent(false);
+        setStatusMessage(null);
+      }, 6000);
+    } catch {
+      // Fallback a mailto si el backend no responde
+      const subject = t("contact.form.subject", {
+        name: form.name || "Amveta",
+      });
+      const body = [
+        t("contact.form.greeting"),
+        "",
+        t("contact.form.nameLine", { name: form.name }),
+        "",
+        form.message,
+        "",
+        t("contact.form.replyLine", { email: form.email }),
+      ].join("\n");
 
-    setSent(true);
-    window.setTimeout(() => setSent(false), 5000);
+      window.location.href = `mailto:${CONTACT_EMAIL}?subject=${encodeURIComponent(
+        subject,
+      )}&body=${encodeURIComponent(body)}`;
+
+      setSent(true);
+      window.setTimeout(() => setSent(false), 5000);
+    } finally {
+      setSubmitting(false);
+    }
   }
 
   return (
@@ -212,18 +236,28 @@ export function Contact() {
 
             <button
               type="submit"
-              className="group mt-5 flex h-12 w-full items-center justify-center gap-2 rounded-full bg-amber px-6 text-sm font-semibold text-ink transition-colors duration-300 hover:bg-gold"
+              disabled={submitting}
+              className="group mt-5 flex h-12 w-full items-center justify-center gap-2 rounded-full bg-amber px-6 text-sm font-semibold text-ink transition-colors duration-300 hover:bg-gold disabled:opacity-75 disabled:cursor-not-allowed"
             >
-              {t("contact.form.submit")}
-              <Send className="size-4 transition-transform duration-300 group-hover:translate-x-0.5 group-hover:-translate-y-0.5" />
+              {submitting ? (
+                <>
+                  <Loader2 className="size-4 animate-spin" />
+                  <span>Enviando...</span>
+                </>
+              ) : (
+                <>
+                  {t("contact.form.submit")}
+                  <Send className="size-4 transition-transform duration-300 group-hover:translate-x-0.5 group-hover:-translate-y-0.5" />
+                </>
+              )}
             </button>
 
             <p
               aria-live="polite"
               className="mt-3 flex items-center justify-center gap-1.5 text-center text-[11px] text-cream/55"
             >
-              <ShieldCheck className="size-3.5" aria-hidden="true" />
-              {sent ? t("contact.form.sent") : t("contact.form.note")}
+              <ShieldCheck className="size-3.5 shrink-0" aria-hidden="true" />
+              {statusMessage || (sent ? t("contact.form.sent") : t("contact.form.note"))}
             </p>
           </form>
         </Reveal>
